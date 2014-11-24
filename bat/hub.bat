@@ -1,0 +1,1 @@
+java -cp *;. org.openqa.grid.selenium.GridLauncher -role hub -servlets com.qaprosoft.qa.StatusServlet
