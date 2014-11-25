@@ -1,0 +1,21 @@
+{
+  "message":"success",
+  "description":"success",
+  "node_statuses": 
+  [
+    {"node_status":
+    	{"host":"1.0.0.1",
+    	 "status":"available",
+         "browser_statuses":
+         [{"browser_status":
+          {"browser" : "firefox",
+           "status": "PASS"}},
+          {"browser_status":
+          {"browser" : "chrome",
+           "status": "PASS"}}
+          ]
+     	}
+    }
+   ]
+  }
+}

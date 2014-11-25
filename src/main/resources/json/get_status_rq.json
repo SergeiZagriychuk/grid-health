@@ -1,0 +1,11 @@
+{
+  "nodes":
+  [
+    {
+     "node":
+     {"host":"192.0.0.1",
+      "browsers":["firefox", "chrome"]
+     }
+    }
+  ]
+}
