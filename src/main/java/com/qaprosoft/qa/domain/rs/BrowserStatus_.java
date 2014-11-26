@@ -11,6 +11,8 @@ public class BrowserStatus_ {
     private String browser;
     @Expose
     private String status;
+    @Expose
+    private String details;
 
     /**
      * 
@@ -44,6 +46,23 @@ public class BrowserStatus_ {
      */
     public void setStatus(String status) {
 	this.status = status;
+    }
+
+    /**
+     * 
+     * @return The details
+     */
+    public String getDetails() {
+	return details;
+    }
+
+    /**
+     * 
+     * @param details
+     *            The details
+     */
+    public void setDetails(String details) {
+	this.details = details;
     }
 
 }

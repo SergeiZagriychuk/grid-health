@@ -3,6 +3,7 @@ package com.qaprosoft.qa;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -11,9 +12,11 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.openqa.grid.common.exception.CapabilityNotPresentOnTheGridException;
 import org.openqa.grid.common.exception.GridException;
 import org.openqa.grid.internal.ProxySet;
 import org.openqa.grid.internal.Registry;
@@ -26,6 +29,7 @@ import org.openqa.grid.web.servlet.RegistryBasedServlet;
 import org.openqa.selenium.remote.DesiredCapabilities;
 
 import com.google.gson.Gson;
+import com.qaprosoft.qa.domain.BrowserName;
 import com.qaprosoft.qa.domain.rq.GetStatusRequest;
 import com.qaprosoft.qa.domain.rq.Node;
 import com.qaprosoft.qa.domain.rs.BrowserStatus;
@@ -35,8 +39,7 @@ import com.qaprosoft.qa.domain.rs.NodeStatus_;
 import com.qaprosoft.qa.domain.rs.NodesStatus;
 
 public class StatusServlet extends RegistryBasedServlet {
-    // private final static Logger LOGGER =
-    // Logger.getLogger(StatusServlet.class);
+    private final static Logger LOGGER = Logger.getLogger(StatusServlet.class);
 
     /**
 	 * 
@@ -159,26 +162,35 @@ public class StatusServlet extends RegistryBasedServlet {
 			BrowserStatus_ browserStatus_ = new BrowserStatus_();
 			browserStatus_.setBrowser(browser);
 
-			Map<String, Object> dc = getDesiredCapbilities(browser);
+			Map<String, Object> dc = getDesiredCapabilities(browser);
 			if (dc == null) {
-			    browserStatus_.setStatus("fail: check browser name in request");
-			    continue;
-			}
-			MockedRequestHandler mockRqHandler = GridHelper.createNewSessionHandler(proxyRegistry, dc);
-			proxyRegistry.addNewSessionRequest(mockRqHandler);
-			try {
-			    Thread.sleep(1000);
-			} catch (InterruptedException e) {
-			    e.printStackTrace();
-			}
-			TestSession session = mockRqHandler.getSession();
-			if (session == null) {
 			    browserStatus_.setStatus("fail");
+			    browserStatus_.setDetails("check browser name in request. possible values: " + Arrays.toString(BrowserName.values()));
 			} else {
+			    TestSession session = null;
+			    MockedRequestHandler mockRqHandler = GridHelper.createNewSessionHandler(proxyRegistry, dc);
 			    try {
+				proxyRegistry.addNewSessionRequest(mockRqHandler);
+				try {
+				    Thread.sleep(1000);
+				} catch (InterruptedException e) {
+				    LOGGER.error("Exception thrown", e);
+				}
+				session = mockRqHandler.getSession();
+			    } catch (CapabilityNotPresentOnTheGridException e) {
+				LOGGER.error("Exception thrown", e);
+				browserStatus_.setStatus("not supported");
+				browserStatus_.setDetails(e.getMessage());
+			    } catch (GridException e) {
+				LOGGER.error("Exception thrown", e);
+				browserStatus_.setStatus("fail");
+				browserStatus_.setDetails(e.getMessage());
+			    }
+
+			    if (session == null) {
+				proxyRegistry.removeNewSessionRequest(mockRqHandler);
+			    } else {
 				browserStatus_.setStatus("pass");
-				// "session key: " + session.getInternalKey()
-			    } finally {
 				proxyRegistry.terminate(session, SessionTerminationReason.CLIENT_STOPPED_SESSION);
 			    }
 			}
@@ -204,14 +216,22 @@ public class StatusServlet extends RegistryBasedServlet {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, Object> getDesiredCapbilities(String browser) {
-	if ("firefox".equals(browser)) {
+    private static Map<String, Object> getDesiredCapabilities(String browser) {
+	BrowserName browserName;
+	try {
+	    browserName = BrowserName.valueOf(browser);
+	} catch (IllegalArgumentException e) {
+	    return null;
+	}
+
+	switch (browserName) {
+	case firefox:
 	    return (Map<String, Object>) DesiredCapabilities.firefox().asMap();
-	} else if ("chrome".equals(browser)) {
+	case chrome:
 	    return (Map<String, Object>) DesiredCapabilities.chrome().asMap();
-	} else if ("ie".equals(browser)) {
+	case ie:
 	    return (Map<String, Object>) DesiredCapabilities.internetExplorer().asMap();
-	} else {
+	default:
 	    return null;
 	}
     }

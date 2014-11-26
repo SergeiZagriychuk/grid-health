@@ -12,7 +12,8 @@
            "status": "PASS"}},
           {"browser_status":
           {"browser" : "chrome",
-           "status": "PASS"}}
+           "status": "FAIL",
+           "details": "error details"}}
           ]
      	}
     }
