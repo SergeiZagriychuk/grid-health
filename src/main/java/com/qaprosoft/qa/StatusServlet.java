@@ -37,6 +37,7 @@ import com.qaprosoft.qa.domain.rs.BrowserStatus_;
 import com.qaprosoft.qa.domain.rs.NodeStatus;
 import com.qaprosoft.qa.domain.rs.NodeStatus_;
 import com.qaprosoft.qa.domain.rs.NodesStatus;
+import com.qaprosoft.qa.util.SleepUtil;
 
 public class StatusServlet extends RegistryBasedServlet {
     private final static Logger LOGGER = Logger.getLogger(StatusServlet.class);
@@ -45,6 +46,9 @@ public class StatusServlet extends RegistryBasedServlet {
 	 * 
 	 */
     private static final long serialVersionUID = -7294299154589147554L;
+
+    private final static int SLEEP_TIME_IN_SEC = 1;
+    private final static int DEFAULT_TIMEOUT_SEC = 1;
 
     public StatusServlet() {
 	this(null);
@@ -167,31 +171,50 @@ public class StatusServlet extends RegistryBasedServlet {
 			    browserStatus_.setStatus("fail");
 			    browserStatus_.setDetails("check browser name in request. possible values: " + Arrays.toString(BrowserName.values()));
 			} else {
-			    TestSession session = null;
 			    MockedRequestHandler mockRqHandler = GridHelper.createNewSessionHandler(proxyRegistry, dc);
+			    boolean areCapabilitiesFound = false;
 			    try {
 				proxyRegistry.addNewSessionRequest(mockRqHandler);
-				try {
-				    Thread.sleep(1000);
-				} catch (InterruptedException e) {
-				    LOGGER.error("Exception thrown", e);
-				}
-				session = mockRqHandler.getSession();
+				areCapabilitiesFound = true;
 			    } catch (CapabilityNotPresentOnTheGridException e) {
 				LOGGER.error("Exception thrown", e);
 				browserStatus_.setStatus("not supported");
 				browserStatus_.setDetails(e.getMessage());
-			    } catch (GridException e) {
-				LOGGER.error("Exception thrown", e);
-				browserStatus_.setStatus("fail");
-				browserStatus_.setDetails(e.getMessage());
-			    }
-
-			    if (session == null) {
 				proxyRegistry.removeNewSessionRequest(mockRqHandler);
-			    } else {
-				browserStatus_.setStatus("pass");
-				proxyRegistry.terminate(session, SessionTerminationReason.CLIENT_STOPPED_SESSION);
+			    }
+			    if (areCapabilitiesFound) {
+				// waiting until session is created with timeout
+				boolean isCreated = false;
+				int timeout = node.getNode().getTimeout();
+				if (timeout <= 0) {
+				    timeout = DEFAULT_TIMEOUT_SEC;
+				}
+				String exceptionMsg = null;
+				int currentSec = 0;
+				TestSession session = null;
+				while (currentSec < timeout) {
+				    SleepUtil.sleep(SLEEP_TIME_IN_SEC);
+				    currentSec++;
+				    try {
+					session = mockRqHandler.getSession();
+					isCreated = true;
+					break;
+				    } catch (GridException e) {
+					LOGGER.error("Exception thrown", e);
+					exceptionMsg = e.getMessage();
+				    }
+				}
+				if (!isCreated) {
+				    browserStatus_.setStatus("fail");
+				    browserStatus_.setDetails(exceptionMsg);
+				}
+
+				if (session == null) {
+				    proxyRegistry.removeNewSessionRequest(mockRqHandler);
+				} else {
+				    browserStatus_.setStatus("pass");
+				    proxyRegistry.terminate(session, SessionTerminationReason.CLIENT_STOPPED_SESSION);
+				}
 			    }
 			}
 			BrowserStatus bs = new BrowserStatus();

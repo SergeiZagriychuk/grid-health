@@ -12,6 +12,11 @@ public class Node_ {
 
     @Expose
     private String host;
+    /**
+     * timeout in sec used to wait until session could be created
+     */
+    @Expose
+    private int timeout;
     @Expose
     private List<String> browsers = new ArrayList<String>();
 
@@ -30,6 +35,14 @@ public class Node_ {
      */
     public void setHost(String host) {
 	this.host = host;
+    }
+
+    public int getTimeout() {
+	return timeout;
+    }
+
+    public void setTimeout(int timeout) {
+	this.timeout = timeout;
     }
 
     /**
