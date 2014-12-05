@@ -12,13 +12,10 @@ public class Node_ {
 
     @Expose
     private String host;
-    /**
-     * timeout in sec used to wait until session could be created
-     */
     @Expose
-    private int timeout;
+    private Integer timeout;
     @Expose
-    private List<String> browsers = new ArrayList<String>();
+    private List<Browser> browsers = new ArrayList<Browser>();
 
     /**
      * 
@@ -37,11 +34,20 @@ public class Node_ {
 	this.host = host;
     }
 
-    public int getTimeout() {
+    /**
+     * 
+     * @return The timeout
+     */
+    public Integer getTimeout() {
 	return timeout;
     }
 
-    public void setTimeout(int timeout) {
+    /**
+     * 
+     * @param timeout
+     *            The timeout
+     */
+    public void setTimeout(Integer timeout) {
 	this.timeout = timeout;
     }
 
@@ -49,7 +55,7 @@ public class Node_ {
      * 
      * @return The browsers
      */
-    public List<String> getBrowsers() {
+    public List<Browser> getBrowsers() {
 	return browsers;
     }
 
@@ -58,7 +64,7 @@ public class Node_ {
      * @param browsers
      *            The browsers
      */
-    public void setBrowsers(List<String> browsers) {
+    public void setBrowsers(List<Browser> browsers) {
 	this.browsers = browsers;
     }
 

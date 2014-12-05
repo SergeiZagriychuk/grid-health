@@ -3,8 +3,19 @@
   [
     {
      "node":
-     {"host":"192.0.0.1",
-      "browsers":["firefox", "chrome"]
+     {
+      "host":"192.0.0.1",
+      "timeout":10,
+      "browsers":[
+        {
+          "browser_name":"firefox",
+          "browser_version":"23"
+        },
+        {
+          "browser_name":"ie",
+          "browser_version":"9"
+        }
+        ]
      }
     }
   ]

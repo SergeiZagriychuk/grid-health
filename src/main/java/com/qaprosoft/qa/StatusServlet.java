@@ -30,6 +30,7 @@ import org.openqa.selenium.remote.DesiredCapabilities;
 
 import com.google.gson.Gson;
 import com.qaprosoft.qa.domain.BrowserName;
+import com.qaprosoft.qa.domain.rq.Browser;
 import com.qaprosoft.qa.domain.rq.GetStatusRequest;
 import com.qaprosoft.qa.domain.rq.Node;
 import com.qaprosoft.qa.domain.rs.BrowserStatus;
@@ -162,27 +163,35 @@ public class StatusServlet extends RegistryBasedServlet {
 		if (node.getNode().getHost().equals(actualHost)) {
 		    ns_.setStatus("available");
 		    List<BrowserStatus> browserStatuses = new ArrayList<BrowserStatus>();
-		    for (String browser : node.getNode().getBrowsers()) {
+		    for (Browser browser : node.getNode().getBrowsers()) {
 			BrowserStatus_ browserStatus_ = new BrowserStatus_();
-			browserStatus_.setBrowser(browser);
+			browserStatus_.setBrowser(browser.getBrowserName());
 
-			Map<String, Object> dc = getDesiredCapabilities(browser);
+			Map<String, Object> dc = getDesiredCapabilities(browser.getBrowserName(), browser.getBrowserVersion());
 			if (dc == null) {
 			    browserStatus_.setStatus("fail");
 			    browserStatus_.setDetails("check browser name in request. possible values: " + Arrays.toString(BrowserName.values()));
 			} else {
 			    MockedRequestHandler mockRqHandler = GridHelper.createNewSessionHandler(proxyRegistry, dc);
+			    boolean isSessionRequestedSucc = false;
 			    boolean areCapabilitiesFound = false;
 			    try {
 				proxyRegistry.addNewSessionRequest(mockRqHandler);
+				isSessionRequestedSucc = true;
 				areCapabilitiesFound = true;
 			    } catch (CapabilityNotPresentOnTheGridException e) {
 				LOGGER.error("Exception thrown", e);
-				browserStatus_.setStatus("not supported");
-				browserStatus_.setDetails(e.getMessage());
-				proxyRegistry.removeNewSessionRequest(mockRqHandler);
+				mockRqHandler = GridHelper.createNewSessionHandler(proxyRegistry, getDesiredCapabilities(browser.getBrowserName(), null));
+				try {
+				    proxyRegistry.addNewSessionRequest(mockRqHandler);
+				    isSessionRequestedSucc = true;
+				} catch (CapabilityNotPresentOnTheGridException e1) {
+				    browserStatus_.setStatus("not supported");
+				    browserStatus_.setDetails(e1.getMessage());
+				    proxyRegistry.removeNewSessionRequest(mockRqHandler);
+				}
 			    }
-			    if (areCapabilitiesFound) {
+			    if (isSessionRequestedSucc) {
 				// waiting until session is created with timeout
 				boolean isCreated = false;
 				int timeout = node.getNode().getTimeout();
@@ -192,11 +201,13 @@ public class StatusServlet extends RegistryBasedServlet {
 				String exceptionMsg = null;
 				int currentSec = 0;
 				TestSession session = null;
+				String actualVersion = null;
 				while (currentSec < timeout) {
 				    SleepUtil.sleep(SLEEP_TIME_IN_SEC);
 				    currentSec++;
 				    try {
 					session = mockRqHandler.getSession();
+					actualVersion = mockRqHandler.getSession().getSlot().getCapabilities().get("version").toString();
 					isCreated = true;
 					break;
 				    } catch (GridException e) {
@@ -212,7 +223,12 @@ public class StatusServlet extends RegistryBasedServlet {
 				if (session == null) {
 				    proxyRegistry.removeNewSessionRequest(mockRqHandler);
 				} else {
-				    browserStatus_.setStatus("pass");
+				    if (areCapabilitiesFound) {
+					browserStatus_.setStatus("pass");
+				    } else {
+					browserStatus_.setStatus("not supported version");
+					browserStatus_.setDetails("supported version: " + actualVersion);
+				    }
 				    proxyRegistry.terminate(session, SessionTerminationReason.CLIENT_STOPPED_SESSION);
 				}
 			    }
@@ -239,7 +255,7 @@ public class StatusServlet extends RegistryBasedServlet {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, Object> getDesiredCapabilities(String browser) {
+    private static Map<String, Object> getDesiredCapabilities(String browser, String version) {
 	BrowserName browserName;
 	try {
 	    browserName = BrowserName.valueOf(browser);
@@ -247,15 +263,21 @@ public class StatusServlet extends RegistryBasedServlet {
 	    return null;
 	}
 
+	DesiredCapabilities dc;
 	switch (browserName) {
 	case firefox:
-	    return (Map<String, Object>) DesiredCapabilities.firefox().asMap();
+	    dc = DesiredCapabilities.firefox();
+	    break;
 	case chrome:
-	    return (Map<String, Object>) DesiredCapabilities.chrome().asMap();
+	    dc = DesiredCapabilities.chrome();
+	    break;
 	case ie:
-	    return (Map<String, Object>) DesiredCapabilities.internetExplorer().asMap();
+	    dc = DesiredCapabilities.internetExplorer();
+	    break;
 	default:
 	    return null;
 	}
+	dc.setVersion(version);
+	return (Map<String, Object>) dc.asMap();
     }
 }
