@@ -90,8 +90,7 @@ public class StatusServlet extends RegistryBasedServlet {
 	    e.printStackTrace();
 	    response.setStatus(404);
 	    try {
-		response.getWriter().print(
-			new JSONObject().put("status", new JSONObject().put("msg", "session not created").put("description", e.getMessage())));
+		response.getWriter().print(new JSONObject().put(Constants.ERROR_KEY, e.getMessage()));
 	    } catch (JSONException e1) {
 		response.getWriter().print(e.getMessage());
 	    }
@@ -136,8 +135,8 @@ public class StatusServlet extends RegistryBasedServlet {
 		freeProxies.put(eachProxy.getOriginalRegistrationRequest().getAssociatedJSON());
 	    }
 	}
-	requestJSON.put("BusyProxies", busyProxies);
-	requestJSON.put("FreeProxies", freeProxies);
+	requestJSON.put(Constants.BUSY_PROXIES, busyProxies);
+	requestJSON.put(Constants.FREE_PROXIES, freeProxies);
 
 	return requestJSON;
     }
@@ -159,9 +158,9 @@ public class StatusServlet extends RegistryBasedServlet {
 		RemoteProxy proxy = iterator.next();
 		Registry proxyRegistry = proxy.getRegistry();
 
-		String actualHost = (String) proxy.getConfig().get("host");
+		String actualHost = (String) proxy.getConfig().get(Constants.HOST_KEY);
 		if (node.getNode().getHost().equals(actualHost)) {
-		    ns_.setStatus("available");
+		    ns_.setStatus(Constants.NODE_STATUS_AVAILABLE);
 		    List<BrowserStatus> browserStatuses = new ArrayList<BrowserStatus>();
 		    for (Browser browser : node.getNode().getBrowsers()) {
 			BrowserStatus_ browserStatus_ = new BrowserStatus_();
@@ -169,8 +168,8 @@ public class StatusServlet extends RegistryBasedServlet {
 
 			Map<String, Object> dc = getDesiredCapabilities(browser.getBrowserName(), browser.getBrowserVersion());
 			if (dc == null) {
-			    browserStatus_.setStatus("fail");
-			    browserStatus_.setDetails("check browser name in request. possible values: " + Arrays.toString(BrowserName.values()));
+			    browserStatus_.setStatus(Constants.STATUS_FAIL);
+			    browserStatus_.setDetails(Constants.DETAILS_CHECK_BROWSER + Arrays.toString(BrowserName.values()));
 			} else {
 			    MockedRequestHandler mockRqHandler = GridHelper.createNewSessionHandler(proxyRegistry, dc);
 			    boolean isSessionRequestedSucc = false;
@@ -186,7 +185,7 @@ public class StatusServlet extends RegistryBasedServlet {
 				    proxyRegistry.addNewSessionRequest(mockRqHandler);
 				    isSessionRequestedSucc = true;
 				} catch (CapabilityNotPresentOnTheGridException e1) {
-				    browserStatus_.setStatus("not supported");
+				    browserStatus_.setStatus(Constants.STATUS_NOT_SUPPORTED);
 				    browserStatus_.setDetails(e1.getMessage());
 				    proxyRegistry.removeNewSessionRequest(mockRqHandler);
 				}
@@ -207,7 +206,7 @@ public class StatusServlet extends RegistryBasedServlet {
 				    currentSec++;
 				    try {
 					session = mockRqHandler.getSession();
-					actualVersion = mockRqHandler.getSession().getSlot().getCapabilities().get("version").toString();
+					actualVersion = mockRqHandler.getSession().getSlot().getCapabilities().get(Constants.VERSION_KEY).toString();
 					isCreated = true;
 					break;
 				    } catch (GridException e) {
@@ -216,7 +215,7 @@ public class StatusServlet extends RegistryBasedServlet {
 				    }
 				}
 				if (!isCreated) {
-				    browserStatus_.setStatus("fail");
+				    browserStatus_.setStatus(Constants.STATUS_FAIL);
 				    browserStatus_.setDetails(exceptionMsg);
 				}
 
@@ -224,10 +223,10 @@ public class StatusServlet extends RegistryBasedServlet {
 				    proxyRegistry.removeNewSessionRequest(mockRqHandler);
 				} else {
 				    if (areCapabilitiesFound) {
-					browserStatus_.setStatus("pass");
+					browserStatus_.setStatus(Constants.STATUS_PASS);
 				    } else {
-					browserStatus_.setStatus("not supported version");
-					browserStatus_.setDetails("supported version: " + actualVersion);
+					browserStatus_.setStatus(Constants.STATUS_NOT_SUPPORTED_VERSION);
+					browserStatus_.setDetails(Constants.DETAILS_SUPPORTED_VERSION + actualVersion);
 				    }
 				    proxyRegistry.terminate(session, SessionTerminationReason.CLIENT_STOPPED_SESSION);
 				}
@@ -244,7 +243,7 @@ public class StatusServlet extends RegistryBasedServlet {
 	    }
 
 	    if (!isNodeFound) {
-		ns_.setStatus("unavailable");
+		ns_.setStatus(Constants.NODE_STATUS_UNAVAILABLE);
 	    }
 
 	    ns.setNodeStatus(ns_);
@@ -273,6 +272,9 @@ public class StatusServlet extends RegistryBasedServlet {
 	    break;
 	case ie:
 	    dc = DesiredCapabilities.internetExplorer();
+	    break;
+	case safari:
+	    dc = DesiredCapabilities.safari();
 	    break;
 	default:
 	    return null;

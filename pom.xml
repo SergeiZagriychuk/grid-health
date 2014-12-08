@@ -3,13 +3,13 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.qaprosoft</groupId>
 	<artifactId>grid-health</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0</version>
 	<name>grid-health</name>
 	<dependencies>
 		<dependency>
 			<groupId>org.seleniumhq.selenium</groupId>
 			<artifactId>selenium-server</artifactId>
-			<version>2.44.0</version>
+			<version>${selenium.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>javax.servlet</groupId>
