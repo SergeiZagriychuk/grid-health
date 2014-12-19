@@ -271,7 +271,14 @@ public class StatusServlet extends RegistryBasedServlet {
 	    dc = DesiredCapabilities.chrome();
 	    break;
 	case ie:
+		LOGGER.info("Getting IE capabilities");
 	    dc = DesiredCapabilities.internetExplorer();
+	    String ieBrowserName = System.getProperty(Constants.IE_BROWSER_NAME_KEY);
+	    LOGGER.info("IE browser name: " + ieBrowserName);
+		if(ieBrowserName != null)
+		{
+			dc.setBrowserName(ieBrowserName);
+		}
 	    break;
 	case safari:
 	    dc = DesiredCapabilities.safari();

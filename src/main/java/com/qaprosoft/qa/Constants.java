@@ -10,7 +10,7 @@ public class Constants {
 
     public final static String NODE_STATUS_AVAILABLE = "available";
     public final static String NODE_STATUS_UNAVAILABLE = "unavailable";
-
+    
     public final static String STATUS_PASS = "pass";
     public final static String STATUS_FAIL = "fail";
     public final static String STATUS_NOT_SUPPORTED = "not supported";
@@ -18,5 +18,6 @@ public class Constants {
 
     public final static String DETAILS_CHECK_BROWSER = "check browser name in request. possible values: ";
     public final static String DETAILS_SUPPORTED_VERSION = "supported version: ";
-
+    
+    public final static String IE_BROWSER_NAME_KEY = "ie_name";
 }
