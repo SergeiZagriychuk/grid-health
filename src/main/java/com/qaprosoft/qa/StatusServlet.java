@@ -100,8 +100,7 @@ public class StatusServlet extends RegistryBasedServlet {
     }
 
     private void processGet(HttpServletRequest request, HttpServletResponse response) throws IOException, JSONException {
-	JSONObject res = getNodesStatus();
-	response.getWriter().print(res);
+	response.getWriter().print(getProxiesInfo());
 	response.setStatus(200);
     }
 
@@ -121,24 +120,14 @@ public class StatusServlet extends RegistryBasedServlet {
 	response.setStatus(200);
     }
 
-    private JSONObject getNodesStatus() throws IOException, JSONException {
-	JSONObject requestJSON = new JSONObject();
+    private String getProxiesInfo() {
 	ProxySet proxies = this.getRegistry().getAllProxies();
 	Iterator<RemoteProxy> iterator = proxies.iterator();
-	JSONArray busyProxies = new JSONArray();
-	JSONArray freeProxies = new JSONArray();
+	JSONArray jsonArray = new JSONArray();
 	while (iterator.hasNext()) {
-	    RemoteProxy eachProxy = iterator.next();
-	    if (eachProxy.isBusy()) {
-		busyProxies.put(eachProxy.getOriginalRegistrationRequest().getAssociatedJSON());
-	    } else {
-		freeProxies.put(eachProxy.getOriginalRegistrationRequest().getAssociatedJSON());
-	    }
+	    jsonArray.put(iterator.next().getOriginalRegistrationRequest().getAssociatedJSON());
 	}
-	requestJSON.put(Constants.BUSY_PROXIES, busyProxies);
-	requestJSON.put(Constants.FREE_PROXIES, freeProxies);
-
-	return requestJSON;
+	return new Gson().toJson(jsonArray);
     }
 
     private String getNodesStatus(List<Node> nodes) throws IOException, JSONException {
@@ -224,6 +213,18 @@ public class StatusServlet extends RegistryBasedServlet {
 				} else {
 				    if (areCapabilitiesFound) {
 					browserStatus_.setStatus(Constants.STATUS_PASS);
+					// getting of browser maxInstances value
+					Iterator<DesiredCapabilities> dcIterator = proxy.getOriginalRegistrationRequest().getCapabilities().iterator();
+					while (dcIterator.hasNext()) {
+					    DesiredCapabilities actualDC = dcIterator.next();
+					    if (browser.getBrowserName().equals(actualDC.getBrowserName())) {
+						Object maxInst = actualDC.getCapability(Constants.MAX_INSTANCES_KEY);
+						if (maxInst != null) {
+						    browserStatus_.setMaxInstances(maxInst.toString());
+						}
+						break;
+					    }
+					}
 				    } else {
 					browserStatus_.setStatus(Constants.STATUS_NOT_SUPPORTED_VERSION);
 					browserStatus_.setDetails(Constants.DETAILS_SUPPORTED_VERSION + actualVersion);
@@ -271,14 +272,12 @@ public class StatusServlet extends RegistryBasedServlet {
 	    dc = DesiredCapabilities.chrome();
 	    break;
 	case ie:
-		LOGGER.info("Getting IE capabilities");
 	    dc = DesiredCapabilities.internetExplorer();
 	    String ieBrowserName = System.getProperty(Constants.IE_BROWSER_NAME_KEY);
 	    LOGGER.info("IE browser name: " + ieBrowserName);
-		if(ieBrowserName != null)
-		{
-			dc.setBrowserName(ieBrowserName);
-		}
+	    if (ieBrowserName != null) {
+		dc.setBrowserName(ieBrowserName);
+	    }
 	    break;
 	case safari:
 	    dc = DesiredCapabilities.safari();

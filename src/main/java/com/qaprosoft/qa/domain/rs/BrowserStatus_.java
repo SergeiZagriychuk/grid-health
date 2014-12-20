@@ -13,6 +13,8 @@ public class BrowserStatus_ {
     private String status;
     @Expose
     private String details;
+    @Expose
+    private String maxInstances;
 
     /**
      * 
@@ -63,6 +65,14 @@ public class BrowserStatus_ {
      */
     public void setDetails(String details) {
 	this.details = details;
+    }
+
+    public String getMaxInstances() {
+	return maxInstances;
+    }
+
+    public void setMaxInstances(String maxInstances) {
+	this.maxInstances = maxInstances;
     }
 
 }
