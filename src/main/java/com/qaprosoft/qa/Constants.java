@@ -2,8 +2,10 @@ package com.qaprosoft.qa;
 
 public class Constants {
     public final static String HOST_KEY = "host";
+    public final static String REMOTE_HOST_KEY = "remoteHost";
     public final static String VERSION_KEY = "version";
     public final static String MAX_INSTANCES_KEY = "maxInstances";
+    public final static String BROWSER_NAME_KEY = "browserName";
     public final static String ERROR_KEY = "error";
 
     public final static String NODE_STATUS_AVAILABLE = "available";

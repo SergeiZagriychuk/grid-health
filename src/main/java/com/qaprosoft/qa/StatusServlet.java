@@ -16,15 +16,12 @@ import org.apache.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.openqa.grid.common.exception.CapabilityNotPresentOnTheGridException;
 import org.openqa.grid.common.exception.GridException;
 import org.openqa.grid.internal.ProxySet;
 import org.openqa.grid.internal.Registry;
 import org.openqa.grid.internal.RemoteProxy;
 import org.openqa.grid.internal.SessionTerminationReason;
 import org.openqa.grid.internal.TestSession;
-import org.openqa.grid.internal.mock.GridHelper;
-import org.openqa.grid.internal.mock.MockedRequestHandler;
 import org.openqa.grid.web.servlet.RegistryBasedServlet;
 import org.openqa.selenium.remote.DesiredCapabilities;
 
@@ -131,9 +128,6 @@ public class StatusServlet extends RegistryBasedServlet {
     }
 
     private String getNodesStatus(List<Node> nodes) throws IOException, JSONException {
-	ProxySet proxies = this.getRegistry().getAllProxies();
-	Iterator<RemoteProxy> iterator = proxies.iterator();
-
 	NodesStatus nodesStatus = new NodesStatus();
 	List<NodeStatus> nodesStatusList = new ArrayList<NodeStatus>();
 
@@ -142,13 +136,14 @@ public class StatusServlet extends RegistryBasedServlet {
 	    NodeStatus_ ns_ = new NodeStatus_();
 	    ns_.setHost(node.getNode().getHost());
 
+	    ProxySet proxies = this.getRegistry().getAllProxies();
+	    Iterator<RemoteProxy> iterator = proxies.iterator();
 	    boolean isNodeFound = false;
 	    while (iterator.hasNext()) {
 		RemoteProxy proxy = iterator.next();
-		Registry proxyRegistry = proxy.getRegistry();
-
 		String actualHost = (String) proxy.getConfig().get(Constants.HOST_KEY);
-		if (node.getNode().getHost().equals(actualHost)) {
+		String actualRemoteHost = (String) proxy.getConfig().get(Constants.REMOTE_HOST_KEY);
+		if (node.getNode().getHost().equals(actualHost) || node.getNode().getHost().equals(actualRemoteHost)) {
 		    ns_.setStatus(Constants.NODE_STATUS_AVAILABLE);
 		    List<BrowserStatus> browserStatuses = new ArrayList<BrowserStatus>();
 		    for (Browser browser : node.getNode().getBrowsers()) {
@@ -160,77 +155,53 @@ public class StatusServlet extends RegistryBasedServlet {
 			    browserStatus_.setStatus(Constants.STATUS_FAIL);
 			    browserStatus_.setDetails(Constants.DETAILS_CHECK_BROWSER + Arrays.toString(BrowserName.values()));
 			} else {
-			    MockedRequestHandler mockRqHandler = GridHelper.createNewSessionHandler(proxyRegistry, dc);
-			    boolean isSessionRequestedSucc = false;
-			    boolean areCapabilitiesFound = false;
-			    try {
-				proxyRegistry.addNewSessionRequest(mockRqHandler);
-				isSessionRequestedSucc = true;
-				areCapabilitiesFound = true;
-			    } catch (CapabilityNotPresentOnTheGridException e) {
-				LOGGER.error("Exception thrown", e);
-				mockRqHandler = GridHelper.createNewSessionHandler(proxyRegistry, getDesiredCapabilities(browser.getBrowserName(), null));
-				try {
-				    proxyRegistry.addNewSessionRequest(mockRqHandler);
-				    isSessionRequestedSucc = true;
-				} catch (CapabilityNotPresentOnTheGridException e1) {
-				    browserStatus_.setStatus(Constants.STATUS_NOT_SUPPORTED);
-				    browserStatus_.setDetails(e1.getMessage());
-				    proxyRegistry.removeNewSessionRequest(mockRqHandler);
+			    boolean isBrowserVersionValid = false;
+
+			    int timeout = node.getNode().getTimeout();
+			    if (timeout <= 0) {
+				timeout = DEFAULT_TIMEOUT_SEC;
+			    }
+			    int currentSec = 0;
+			    String actualVersion = null;
+			    TestSession session = null;
+			    while (currentSec < timeout) {
+				SleepUtil.sleep(SLEEP_TIME_IN_SEC);
+				currentSec++;
+				session = proxy.getNewSession(dc);
+				if (session != null) {
+				    isBrowserVersionValid = true;
+				    break;
+				} else {
+				    session = proxy.getNewSession(getDesiredCapabilities(browser.getBrowserName(), null));
+				}
+				if (session != null) {
+				    actualVersion = session.getSlot().getCapabilities().get(Constants.VERSION_KEY).toString();
+				    break;
 				}
 			    }
-			    if (isSessionRequestedSucc) {
-				// waiting until session is created with timeout
-				boolean isCreated = false;
-				int timeout = node.getNode().getTimeout();
-				if (timeout <= 0) {
-				    timeout = DEFAULT_TIMEOUT_SEC;
-				}
-				String exceptionMsg = null;
-				int currentSec = 0;
-				TestSession session = null;
-				String actualVersion = null;
-				while (currentSec < timeout) {
-				    SleepUtil.sleep(SLEEP_TIME_IN_SEC);
-				    currentSec++;
-				    try {
-					session = mockRqHandler.getSession();
-					actualVersion = mockRqHandler.getSession().getSlot().getCapabilities().get(Constants.VERSION_KEY).toString();
-					isCreated = true;
-					break;
-				    } catch (GridException e) {
-					LOGGER.error("Exception thrown", e);
-					exceptionMsg = e.getMessage();
-				    }
-				}
-				if (!isCreated) {
-				    browserStatus_.setStatus(Constants.STATUS_FAIL);
-				    browserStatus_.setDetails(exceptionMsg);
-				}
-
-				if (session == null) {
-				    proxyRegistry.removeNewSessionRequest(mockRqHandler);
-				} else {
-				    if (areCapabilitiesFound) {
-					browserStatus_.setStatus(Constants.STATUS_PASS);
-					// getting of browser maxInstances value
-					Iterator<DesiredCapabilities> dcIterator = proxy.getOriginalRegistrationRequest().getCapabilities().iterator();
-					while (dcIterator.hasNext()) {
-					    DesiredCapabilities actualDC = dcIterator.next();
-					    if (browser.getBrowserName().equals(actualDC.getBrowserName())) {
-						Object maxInst = actualDC.getCapability(Constants.MAX_INSTANCES_KEY);
-						if (maxInst != null) {
-						    browserStatus_.setMaxInstances(maxInst.toString());
-						}
-						break;
+			    if (session == null) {
+				browserStatus_.setStatus(Constants.STATUS_NOT_SUPPORTED);
+				browserStatus_.setDetails(String.format("browser with name '%s' not supported on node", dc.get(Constants.BROWSER_NAME_KEY)));
+			    } else {
+				if (isBrowserVersionValid) {
+				    browserStatus_.setStatus(Constants.STATUS_PASS);
+				    // getting of browser maxInstances value
+				    Iterator<DesiredCapabilities> dcIterator = proxy.getOriginalRegistrationRequest().getCapabilities().iterator();
+				    while (dcIterator.hasNext()) {
+					DesiredCapabilities actualDC = dcIterator.next();
+					if (dc.get(Constants.BROWSER_NAME_KEY).equals(actualDC.getBrowserName())) {
+					    Object maxInst = actualDC.getCapability(Constants.MAX_INSTANCES_KEY);
+					    if (maxInst != null) {
+						browserStatus_.setMaxInstances(maxInst.toString());
 					    }
+					    break;
 					}
-				    } else {
-					browserStatus_.setStatus(Constants.STATUS_NOT_SUPPORTED_VERSION);
-					browserStatus_.setDetails(Constants.DETAILS_SUPPORTED_VERSION + actualVersion);
 				    }
-				    proxyRegistry.terminate(session, SessionTerminationReason.CLIENT_STOPPED_SESSION);
+				} else {
+				    browserStatus_.setStatus(Constants.STATUS_NOT_SUPPORTED_VERSION);
+				    browserStatus_.setDetails(Constants.DETAILS_SUPPORTED_VERSION + actualVersion);
 				}
+				getRegistry().terminate(session, SessionTerminationReason.CLIENT_STOPPED_SESSION);
 			    }
 			}
 			BrowserStatus bs = new BrowserStatus();
